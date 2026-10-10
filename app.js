@@ -367,7 +367,7 @@ function renderPlan(plan) {
       </article>`).join("");
   const foodCard = plan.isLowWeight
     ? `<section class="habit-card">
-        <div class="habit-header"><div><div class="habit-kicker">STEADY & NOURISHED</div><h3>先照顾好日常营养</h3></div><span class="habit-spark" aria-hidden="true">✳</span></div>
+        <div class="habit-header"><div><div class="habit-kicker">饮食建议</div><h3>先照顾好日常营养</h3></div><span class="habit-spark" aria-hidden="true">✳</span></div>
         <div class="habit-list">
           <div class="habit-item"><span class="habit-number">01</span><span>规律吃三餐，每餐都包含主食、蛋白质和蔬果，不刻意缩小份量。</span></div>
           <div class="habit-item"><span class="habit-number">02</span><span>选择自己能长期坚持、种类多样的食物；不需要为了体重删掉某一类食物。</span></div>
@@ -376,7 +376,7 @@ function renderPlan(plan) {
         <p class="habit-foot">BMI 是筛查参考，不代表体脂率或个人健康诊断。</p>
       </section>`
     : `<section class="habit-card">
-        <div class="habit-header"><div><div class="habit-kicker">EVERY DAY</div><h3>配合运动的饮食习惯</h3></div><span class="habit-spark" aria-hidden="true">✳</span></div>
+        <div class="habit-header"><div><div class="habit-kicker">日常饮食</div><h3>配合运动的饮食习惯</h3></div><span class="habit-spark" aria-hidden="true">✳</span></div>
         <div class="habit-list">
           <div class="habit-item"><span class="habit-number">01</span><span>主餐先盛蔬菜，再配一掌蛋白质（鱼、蛋、豆腐或鸡肉）和一拳主食。</span></div>
           <div class="habit-item"><span class="habit-number">02</span><span>日常饮品优先选水或无糖茶；含糖饮料留作偶尔选择。</span></div>

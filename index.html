@@ -3,46 +3,38 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f5f7f2">
+  <meta name="theme-color" content="#f8f6f0">
   <meta name="description" content="根据你的身高、体重、运动时间和计划周期，生成一份循序渐进的减脂运动安排。">
-  <title>轻盈计划｜把减脂变成做得到的日常</title>
-  <link rel="stylesheet" href="styles.css?v=4">
-  <script src="app.js?v=4" defer></script>
+  <title>轻盈计划｜循序渐进的减脂安排</title>
+  <link rel="stylesheet" href="styles.css?v=5">
+  <script src="app.js?v=5" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="#top" aria-label="轻盈计划首页">
-      <span class="brand-icon" aria-hidden="true"><span></span></span>
+      <span class="brand-mark" aria-hidden="true">轻</span>
       <span>轻盈计划</span>
     </a>
-    <div class="header-note"><span class="header-dot"></span>资料只保存在本机</div>
+    <div class="header-note"><span class="header-dot"></span>资料仅存本机</div>
   </header>
 
   <main id="top">
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow hero-eyebrow">YOUR ROUTINE, YOUR PACE</p>
+        <p class="eyebrow hero-eyebrow">循序渐进 · 量力而行</p>
         <h1 id="hero-title">把减脂，变成<br><span>做得到的日常</span></h1>
         <p class="hero-description">告诉我们你的基础情况和每天能运动的时间，生成一份循序渐进、可以照着做的计划。</p>
-        <a class="hero-cta" href="#planner">开始规划 <span aria-hidden="true">↘</span></a>
+        <a class="hero-cta" href="#planner">制定我的计划 <span aria-hidden="true">↓</span></a>
       </div>
-      <div class="hero-art" aria-label="计划包含运动、休息与逐月进阶">
-        <div class="orbit orbit-a"></div>
-        <div class="orbit orbit-b"></div>
-        <div class="art-center"><span class="art-leaf"></span><span class="art-caption">STEADY<br>IS STRONG</span></div>
-        <div class="art-sticker sticker-one"><span class="sticker-kicker">YOUR PACE</span><strong>20–90</strong><span>分钟 / 天</span></div>
-        <div class="art-sticker sticker-two"><span class="sticker-kicker">YOUR PLAN</span><strong>1—6</strong><span>个月周期</span></div>
-      </div>
-      <div class="hero-foot"><span><i></i>从能坚持的计划开始</span><span>01 — 轻盈计划</span></div>
     </section>
 
     <section id="planner" class="planner-section" aria-labelledby="planner-title">
       <div class="section-intro">
         <div>
-          <p class="eyebrow">START WITH WHAT YOU HAVE</p>
+          <p class="eyebrow">从适合自己的起点开始</p>
           <h2 id="planner-title">先认识现在的自己</h2>
         </div>
-        <p>不需要一次做到完美。<br>选一个适合你当下的起点。</p>
+        <p>填写基础信息<br>生成每天可执行的安排。</p>
       </div>
 
       <div class="planner-grid">
@@ -67,14 +59,14 @@
           <div class="panel-heading"><span class="step-number">01</span><div><h3>你的基础数据</h3><p>只用于计算 BMI 和生成计划</p></div></div>
           <div class="input-grid">
             <label class="field">
-              <span class="field-label">身高 <small>CM</small></span>
-              <span class="input-wrap"><input id="height" name="height" type="number" inputmode="decimal" min="100" max="230" step="0.1" placeholder="例如 168" required><span>cm</span></span>
-              <span class="field-hint">100–230 cm</span>
+              <span class="field-label">身高</span>
+              <span class="input-wrap"><input id="height" name="height" type="number" inputmode="decimal" min="100" max="230" step="0.1" placeholder="例如 168" required><span>厘米</span></span>
+              <span class="field-hint">范围：100–230 厘米</span>
             </label>
             <label class="field">
-              <span class="field-label">体重 <small>KG</small></span>
-              <span class="input-wrap"><input id="weight" name="weight" type="number" inputmode="decimal" min="25" max="300" step="0.1" placeholder="例如 65" required><span>kg</span></span>
-              <span class="field-hint">25–300 kg</span>
+              <span class="field-label">体重</span>
+              <span class="input-wrap"><input id="weight" name="weight" type="number" inputmode="decimal" min="25" max="300" step="0.1" placeholder="例如 65" required><span>公斤</span></span>
+              <span class="field-hint">范围：25–300 公斤</span>
             </label>
           </div>
           <label class="field bodyfat-field">
@@ -114,33 +106,18 @@
           <p class="privacy-note"><span aria-hidden="true">◉</span> 所有资料只保存在本机浏览器；不会上传到云端。</p>
         </form>
 
-        <aside class="aside-column">
-          <div class="aside-card aside-green">
-            <span class="aside-index">A NOTE FOR YOU</span>
-            <h3>稳定，比拼命更重要。</h3>
-            <p>训练计划会包含力量、有氧和休息日。每个阶段只做小幅进阶，让习惯留得下来。</p>
-            <div class="aside-rule"></div>
-            <div class="aside-stat"><strong>2—3</strong><span>次 / 周<br>力量训练</span><strong>1</strong><span>天 / 周<br>完整休息</span></div>
-          </div>
-          <div class="aside-card aside-light">
-            <span class="aside-index">A GENTLE REMINDER</span>
-            <h3>计划是起点，不是考核。</h3>
-            <p>忙碌或疲劳时，缩短训练也算完成。身体不舒服时休息，之后再继续。</p>
-            <div class="aside-leaf" aria-hidden="true">✳</div>
-          </div>
-        </aside>
       </div>
     </section>
 
     <section id="results" class="results-section" aria-labelledby="results-title" hidden>
       <div class="results-heading">
-        <div><p class="eyebrow">MADE FOR YOUR ROUTINE</p><h2 id="results-title">这就是你的起步计划</h2></div>
+        <div><p class="eyebrow">按你的时间安排</p><h2 id="results-title">你的起步计划</h2></div>
         <button id="print-plan" class="quiet-button" type="button"><span aria-hidden="true">↗</span> 保存 / 打印</button>
       </div>
       <div id="plan-output"></div>
     </section>
 
-    <section class="closing-note"><span class="closing-mark" aria-hidden="true">✳</span><p>慢一点，也是在向前。</p><span>ONE DAY AT A TIME</span></section>
+    <section class="closing-note"><span class="closing-mark" aria-hidden="true">—</span><p>循序渐进，贵在坚持。</p></section>
   </main>
 
   <footer class="site-footer"><span>轻盈计划 · 个人减脂规划</span><a href="#top">回到顶部 ↑</a></footer>
