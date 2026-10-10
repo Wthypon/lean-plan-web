@@ -739,3 +739,97 @@ body { background: var(--paper); color: var(--ink); font-family: -apple-system, 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+.estimate-fields { margin-top: 18px; }
+.activity-field { margin-top: 18px; }
+.select-wrap select { width: 100%; min-width: 0; height: 100%; border: 0; outline: 0; color: #302c27; background: transparent; font-size: 14px; appearance: none; }
+.select-wrap select:invalid { color: #a19a90; }
+.select-wrap > span { color: #a54135; font-size: 16px; }
+.nutrition-diary { margin: 18px 0 0; padding: 22px; border: 1px solid #e9e2d8; border-radius: 12px; background: #fffefa; scroll-margin-top: 82px; }
+.nutrition-heading { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
+.nutrition-heading h3 { margin: 5px 0 0; color: #39342e; font-family: "Songti SC", "STSong", "Noto Serif SC", serif; font-size: 22px; font-weight: 600; }
+.nutrition-date { color: #827b72; font-size: 12px; }
+.nutrition-overview { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.nutrition-total, .nutrition-target { min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 14px; border: 1px solid #eee8df; border-radius: 9px; background: #fcfaf6; }
+.nutrition-total > span, .nutrition-target > span { color: #827b72; font-size: 11px; }
+.nutrition-total strong, .nutrition-target strong { overflow-wrap: anywhere; color: #8e3d33; font-size: 20px; font-variant-numeric: tabular-nums; }
+.nutrition-total strong small, .nutrition-target strong small { margin-left: 4px; color: #827b72; font-size: 10px; font-weight: 500; }
+.nutrition-progress { height: 7px; overflow: hidden; margin-top: 13px; border-radius: 99px; background: #eee9e0; }
+.nutrition-progress > span { height: 100%; display: block; border-radius: inherit; background: #a54135; transition: width .2s ease; }
+.nutrition-summary { margin: 10px 0 0; color: #746d63; font-size: 12px; line-height: 1.6; }
+.nutrition-summary.is-over { color: #9b4036; }
+.food-photo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 11px 14px; margin-top: 17px; }
+.food-photo-button { min-height: 46px; display: inline-flex; align-items: center; gap: 9px; border: 0; border-radius: 8px; padding: 0 15px; color: #fffaf5; background: #a54135; font-size: 13px; font-weight: 650; cursor: pointer; transition: background .16s ease, opacity .16s ease; }
+.food-photo-button:hover { background: #8e352c; }
+.food-photo-actions:focus-within .food-photo-button { outline: 3px solid rgba(165, 65, 53, .22); outline-offset: 3px; }
+.food-photo-button.is-loading { opacity: .55; pointer-events: none; }
+.food-photo-button span { font-size: 18px; }
+.food-photo-actions p { flex: 1 1 220px; margin: 0; color: #827b72; font-size: 10px; line-height: 1.55; }
+.food-analysis-status { min-height: 0; margin-top: 10px; color: #827b72; font-size: 11px; line-height: 1.6; }
+.food-analysis-status:empty { display: none; }
+.food-analysis-status.is-error { color: #a54135; }
+.food-empty { margin: 15px 0 0; color: #918a80; font-size: 12px; }
+.food-entry-list { display: grid; gap: 0; margin: 13px 0 0; padding: 0; list-style: none; }
+.food-entry { display: grid; grid-template-columns: 43px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid #eee8df; }
+.food-entry time { color: #8a8379; font-size: 10px; font-variant-numeric: tabular-nums; }
+.food-entry-description { min-width: 0; display: grid; gap: 3px; }
+.food-entry-description strong { overflow: hidden; color: #494139; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.food-entry-description span { overflow: hidden; color: #8a8379; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.food-entry-calories { color: #67584f; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.food-entry-calories small { display: block; color: #958c81; font-size: 9px; font-weight: 400; text-align: right; }
+.food-entry-remove { border: 0; padding: 7px 2px 7px 5px; color: #928a80; background: transparent; font-size: 10px; cursor: pointer; }
+.food-entry-remove:hover { color: #a54135; }
+.food-manual-entry, .food-service-settings { margin-top: 14px; border-top: 1px solid #eee8df; padding-top: 12px; }
+.food-manual-entry summary, .food-service-settings summary { width: fit-content; color: #7e6257; font-size: 12px; cursor: pointer; }
+.manual-food-form, .food-service-form { display: grid; gap: 11px; margin-top: 13px; }
+.manual-food-form label, .food-service-form label, .food-preview-confirm label { display: grid; gap: 6px; color: #746d63; font-size: 10px; }
+.manual-food-form input, .food-service-form input, .food-preview-confirm input { width: 100%; min-width: 0; height: 43px; border: 1px solid #e8e2d8; border-radius: 7px; outline: 0; padding: 0 10px; color: #302c27; background: #fdfbf7; font-size: 13px; }
+.manual-food-form input:focus, .food-service-form input:focus, .food-preview-confirm input:focus { border-color: #bd766a; box-shadow: 0 0 0 3px rgba(165, 65, 53, .09); }
+.manual-food-calories { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.manual-food-form .binding-action, .food-service-form .binding-action { min-height: 43px; justify-self: start; }
+.food-service-note, .calorie-estimate-note { margin: 11px 0 0; color: #827b72; font-size: 10px; line-height: 1.65; }
+.food-service-note a { color: #963f35; text-decoration: underline; text-underline-offset: 2px; }
+.calorie-estimate-note { padding-top: 12px; border-top: 1px solid #eee8df; }
+.food-preview-card { display: grid; grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 13px; margin-top: 12px; padding: 12px; border: 1px solid #e8e0d7; border-radius: 9px; background: #fcfaf6; }
+.food-preview-card > img { width: 100%; max-height: 190px; align-self: start; border-radius: 7px; object-fit: cover; }
+.food-preview-content { min-width: 0; }
+.food-preview-title { color: #494139; font-size: 13px; }
+.food-preview-content ul { display: grid; gap: 6px; margin: 10px 0; padding: 0; list-style: none; }
+.food-preview-content li { display: flex; justify-content: space-between; gap: 10px; color: #756d63; font-size: 10px; line-height: 1.5; }
+.food-preview-content li strong { flex: 0 0 auto; color: #8d4036; font-size: 10px; font-weight: 600; }
+.food-preview-content > p { margin: 9px 0; color: #827b72; font-size: 10px; line-height: 1.6; }
+.food-preview-confirm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 11px; }
+.food-preview-confirm label:first-child { grid-column: 1 / -1; }
+.food-preview-confirm input { height: 38px; }
+.food-preview-confirm .binding-action { grid-column: 1 / -1; min-height: 43px; }
+
+@media (max-width: 760px) {
+  .nutrition-diary { margin-top: 14px; padding: 16px 14px; border-radius: 11px; }
+  .nutrition-heading h3 { font-size: 20px; }
+  .nutrition-total, .nutrition-target { padding: 12px 10px; }
+  .nutrition-total strong, .nutrition-target strong { font-size: 18px; }
+  .food-photo-button { min-height: 48px; font-size: 13px; }
+  .food-entry { grid-template-columns: 38px minmax(0, 1fr) auto 30px; gap: 7px; }
+  .food-entry-description strong { font-size: 12px; }
+  .food-preview-card { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding: 9px; }
+  .food-preview-card > img { max-height: 135px; }
+  .food-preview-content li { flex-direction: column; gap: 1px; }
+  .food-preview-confirm { grid-template-columns: 1fr 1fr; }
+  .mobile-dock { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mobile-nav-link { font-size: 10px; }
+}
+
+@media (max-width: 380px) {
+  .estimate-fields { grid-template-columns: 1fr; }
+  .nutrition-overview { gap: 7px; }
+  .nutrition-total, .nutrition-target { padding-inline: 8px; }
+  .nutrition-total strong, .nutrition-target strong { font-size: 16px; }
+  .food-entry { grid-template-columns: 34px minmax(0, 1fr) auto 26px; gap: 5px; }
+  .food-entry-calories { font-size: 10px; }
+  .food-preview-card { grid-template-columns: 1fr; }
+  .food-preview-card > img { width: 100%; max-height: 190px; }
+}
+
+@media print {
+  .nutrition-diary { display: none !important; }
+}

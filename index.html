@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f8f6f0">
-  <meta name="description" content="根据你的身高、体重、运动时间和计划周期，生成一份循序渐进的减脂运动安排。">
+  <meta name="description" content="根据个人资料和每日运动时间生成循序渐进的计划，并记录今日饮食与热量估算。">
   <title>轻盈计划｜循序渐进的减脂安排</title>
-  <link rel="stylesheet" href="styles.css?v=5">
-  <script src="app.js?v=5" defer></script>
+  <link rel="stylesheet" href="styles.css?v=6">
+  <script src="app.js?v=6" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -15,7 +15,7 @@
       <span class="brand-mark" aria-hidden="true">轻</span>
       <span>轻盈计划</span>
     </a>
-    <div class="header-note"><span class="header-dot"></span>资料仅存本机</div>
+    <div class="header-note"><span class="header-dot"></span>个人资料存本机</div>
   </header>
 
   <main id="top">
@@ -56,7 +56,7 @@
             <p id="profile-restore-status" class="profile-status" role="status" aria-live="polite"></p>
           </section>
           <div id="profile-restore-divider" class="profile-restore-divider"><span>或填写新资料开始规划</span></div>
-          <div class="panel-heading"><span class="step-number">01</span><div><h3>你的基础数据</h3><p>只用于计算 BMI 和生成计划</p></div></div>
+          <div class="panel-heading"><span class="step-number">01</span><div><h3>你的基础数据</h3><p>在本机用于估算热量和生成计划</p></div></div>
           <div class="input-grid">
             <label class="field">
               <span class="field-label">身高</span>
@@ -69,6 +69,21 @@
               <span class="field-hint">范围：25–300 公斤</span>
             </label>
           </div>
+          <div class="input-grid estimate-fields">
+            <label class="field">
+              <span class="field-label">年龄</span>
+              <span class="input-wrap"><input id="age" name="age" type="number" inputmode="numeric" min="18" max="100" step="1" placeholder="例如 30" required><span>岁</span></span>
+            </label>
+            <label class="field">
+              <span class="field-label">生理性别 <small>用于热量估算</small></span>
+              <span class="input-wrap select-wrap"><select id="sex" name="sex" required><option value="">请选择</option><option value="female">女</option><option value="male">男</option></select><span aria-hidden="true">⌄</span></span>
+            </label>
+          </div>
+          <label class="field activity-field">
+            <span class="field-label">日常活动量 <small>不含本计划训练</small></span>
+            <span class="input-wrap select-wrap"><select id="activity" name="activity" required><option value="">请选择平时的活动量</option><option value="sedentary">久坐为主，很少走动</option><option value="light">坐着较多，日常有一些走动</option><option value="active">经常走动或从事体力工作</option></select><span aria-hidden="true">⌄</span></span>
+            <span class="field-hint">用于估算每日消耗，选接近你平时的情况即可</span>
+          </label>
           <label class="field bodyfat-field">
             <span class="field-label">体脂率 <small class="optional-label">选填</small></span>
             <span class="input-wrap"><input id="body-fat" name="bodyFat" type="number" inputmode="decimal" min="3" max="70" step="0.1" placeholder="知道的话可以填写"><span>%</span></span>
@@ -99,11 +114,11 @@
             </div>
           </fieldset>
 
-          <label class="adult-confirm"><input id="adult-confirm" name="adultConfirm" type="checkbox" required><span class="custom-check" aria-hidden="true"></span><span>我已满 18 岁，目前没有怀孕、运动禁忌或未控制的疾病</span></label>
+          <label class="adult-confirm"><input id="adult-confirm" name="adultConfirm" type="checkbox" required><span class="custom-check" aria-hidden="true"></span><span>我已满 18 岁，目前未怀孕或哺乳；没有运动禁忌或未控制的疾病</span></label>
           <p class="safety-hint">如有慢性病、疼痛或正在用药，请先咨询医生或专业人士。</p>
           <p id="form-error" class="form-error" role="alert" aria-live="polite"></p>
           <button class="primary-button" type="submit"><span>生成我的计划</span><span aria-hidden="true">↗</span></button>
-          <p class="privacy-note"><span aria-hidden="true">◉</span> 所有资料只保存在本机浏览器；不会上传到云端。</p>
+          <p class="privacy-note"><span aria-hidden="true">◉</span> 个人资料与饮食记录保存在本机；仅在你点击识别时发送所选照片。</p>
         </form>
 
       </div>
@@ -130,6 +145,10 @@
     <a class="mobile-nav-link" href="#planner" data-nav-target="planner">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v17M3.5 12h17"/><circle cx="12" cy="12" r="9"/></svg>
       <span>规划</span>
+    </a>
+    <a class="mobile-nav-link is-disabled" href="#nutrition-diary" data-nav-target="diet" aria-disabled="true" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM8 9h8M8 13h5"/><path d="M7 2.5v5M17 2.5v5"/></svg>
+      <span>饮食</span>
     </a>
     <a class="mobile-nav-link is-disabled" href="#results" data-nav-target="results" aria-disabled="true" tabindex="-1">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6.5h11M8.5 12h11M8.5 17.5h11"/><path d="m3.5 6.5 1.2 1.2 2-2.4M3.5 12l1.2 1.2 2-2.4M3.5 17.5l1.2 1.2 2-2.4"/></svg>

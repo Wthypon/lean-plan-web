@@ -1,5 +1,10 @@
 const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 const CHECKIN_STORAGE_KEY = "lean-plan-week-checkins";
+const FOOD_LOG_STORAGE_KEY = "lean-plan-food-log";
+const FOOD_SETTINGS_STORAGE_KEY = "lean-plan-food-settings";
+const MAX_FOOD_ENTRIES_PER_DAY = 30;
+let pendingFoodEstimate = null;
+let pendingFoodImageUrl = "";
 
 function dateKey(date) {
   const year = date.getFullYear();
@@ -39,6 +44,59 @@ function saveWeekCheckins(daysDone) {
   }
 }
 
+function readFoodSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FOOD_SETTINGS_STORAGE_KEY) || "{}");
+    const endpoint = typeof saved.endpoint === "string" ? saved.endpoint.trim() : "";
+    const token = typeof saved.token === "string" ? saved.token.trim() : "";
+    return { endpoint, token };
+  } catch (_) {
+    return { endpoint: "", token: "" };
+  }
+}
+
+function saveFoodSettings(settings) {
+  try {
+    localStorage.setItem(FOOD_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function readFoodLog() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FOOD_LOG_STORAGE_KEY) || "{}");
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function readTodayFoodEntries() {
+  const entries = readFoodLog()[dateKey(new Date())];
+  return Array.isArray(entries) ? entries.filter((entry) =>
+    entry && typeof entry.id === "string" && typeof entry.name === "string" &&
+    Number.isFinite(entry.low) && Number.isFinite(entry.high) && entry.low >= 0 && entry.high >= entry.low
+  ).slice(0, MAX_FOOD_ENTRIES_PER_DAY) : [];
+}
+
+function saveTodayFoodEntries(entries) {
+  try {
+    const log = readFoodLog();
+    log[dateKey(new Date())] = entries.slice(0, MAX_FOOD_ENTRIES_PER_DAY);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    Object.keys(log).forEach((key) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || new Date(`${key}T00:00:00`).getTime() < cutoff.getTime()) delete log[key];
+    });
+    localStorage.setItem(FOOD_LOG_STORAGE_KEY, JSON.stringify(log));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function buildWeekPlan(minutes) {
   const warmupMinutes = Math.min(5, Math.max(3, Math.round(minutes * 0.1)));
   const workMinutes = minutes - warmupMinutes;
@@ -69,14 +127,33 @@ function buildMonths(months, minutes) {
   return Array.from({ length: months }, (_, index) => ({ month: index + 1, ...phases[Math.min(index, phases.length - 1)] }));
 }
 
-function buildPlan({ height, weight, bodyFat, minutes, months }) {
+function estimateDailyCalories({ height, weight, age, sex, activity, minutes }, isLowWeight) {
+  if (!age || !sex || !activity) return null;
+  const resting = 10 * weight + 6.25 * height - 5 * age + (sex === "male" ? 5 : -161);
+  const dailyActivityFactor = { sedentary: 1.2, light: 1.35, active: 1.5 }[activity] || 1.2;
+  const plannedTrainingAverage = 3 * weight * (minutes / 60) * (6 / 7);
+  const maintenance = resting * dailyActivityFactor + plannedTrainingAverage;
+  const target = isLowWeight ? maintenance : maintenance * 0.9;
+  return {
+    maintenance: Math.round(maintenance / 10) * 10,
+    target: Math.round(target / 10) * 10,
+    isMaintenanceOnly: isLowWeight
+  };
+}
+
+function buildPlan({ height, weight, bodyFat, age, sex, activity, minutes, months }) {
   const bmi = weight / ((height / 100) ** 2);
+  const isLowWeight = bmi < 18.5;
   return {
     bmi: bmi.toFixed(1),
-    isLowWeight: bmi < 18.5,
+    isLowWeight,
     bodyFat,
+    age,
+    sex,
+    activity,
     minutes,
     months,
+    calorieEstimate: estimateDailyCalories({ height, weight, age, sex, activity, minutes }, isLowWeight),
     weekPlan: buildWeekPlan(minutes),
     monthPlan: buildMonths(months, minutes)
   };
@@ -125,12 +202,17 @@ function validateLocalProfile(value) {
   const bodyFat = value.bodyFat === null || value.bodyFat === "" || value.bodyFat === undefined ? null : Number(value.bodyFat);
   const minutes = Number(value.minutes);
   const months = Number(value.months);
+  const age = value.age === null || value.age === "" || value.age === undefined ? null : Number(value.age);
+  const sex = value.sex === "female" || value.sex === "male" ? value.sex : "";
+  const activity = ["sedentary", "light", "active"].includes(value.activity) ? value.activity : "";
+  const hasEstimateFields = age !== null || Boolean(value.sex) || Boolean(value.activity);
   if (!Number.isFinite(height) || height < 100 || height > 230) return null;
   if (!Number.isFinite(weight) || weight < 25 || weight > 300) return null;
   if (bodyFat !== null && (!Number.isFinite(bodyFat) || bodyFat < 3 || bodyFat > 70)) return null;
+  if (hasEstimateFields && (!Number.isInteger(age) || age < 18 || age > 100 || !sex || !activity)) return null;
   if (![20, 30, 45, 60, 90].includes(minutes)) return null;
   if (!Number.isInteger(months) || months < 1 || months > 6) return null;
-  return { height, weight, bodyFat, minutes, months };
+  return { height, weight, bodyFat, age, sex, activity, minutes, months };
 }
 
 function readLocalProfiles() {
@@ -190,6 +272,9 @@ function getFormProfile() {
     height: data.height,
     weight: data.weight,
     bodyFat: data.bodyFat,
+    age: data.age,
+    sex: data.sex,
+    activity: data.activity,
     minutes: data.minutes,
     months: data.months
   };
@@ -199,6 +284,9 @@ function applySavedProfile(profile) {
   form.elements.height.value = profile.height;
   form.elements.weight.value = profile.weight;
   form.elements.bodyFat.value = profile.bodyFat === null ? "" : profile.bodyFat;
+  form.elements.age.value = profile.age ?? "";
+  form.elements.sex.value = profile.sex || "";
+  form.elements.activity.value = profile.activity || "";
   form.elements.minutes.value = String(profile.minutes);
   form.elements.months.value = String(profile.months);
   form.elements.adultConfirm.checked = false;
@@ -225,6 +313,305 @@ function renderBindingCard() {
   </section>`;
 }
 
+let foodStatusMessage = "照片识别服务需要先配置；也可以直接手动记录。";
+let foodStatusError = false;
+
+function formatCalories(value) {
+  return Math.max(0, Math.round(Number(value) || 0)).toLocaleString("zh-CN");
+}
+
+function renderFoodDiary(plan) {
+  const entries = readTodayFoodEntries();
+  const totalLow = entries.reduce((sum, entry) => sum + entry.low, 0);
+  const totalHigh = entries.reduce((sum, entry) => sum + entry.high, 0);
+  const totalMiddle = Math.round((totalLow + totalHigh) / 2);
+  const target = plan.calorieEstimate?.target || 0;
+  const percent = target > 0 ? Math.min(100, Math.round((totalMiddle / target) * 100)) : 0;
+  let summary = "记下今天吃的东西，这里会汇总估算摄入。";
+  if (entries.length && totalLow > target) summary = `按估算范围，今日已比目标多约 ${formatCalories(totalLow - target)}–${formatCalories(totalHigh - target)} 千卡。`;
+  else if (entries.length && totalHigh > target) summary = "摄入接近目标；份量、用油和酱料会影响实际热量。";
+  else if (entries.length) summary = `按估算中值，今日约剩 ${formatCalories(target - totalMiddle)} 千卡。实际摄入可能有较大误差。`;
+  const meals = entries.length
+    ? `<ul class="food-entry-list">${entries.map((entry) => `
+        <li class="food-entry" data-food-entry-id="${escapeHTML(entry.id)}">
+          <time>${escapeHTML(entry.time || "今天")}</time>
+          <div class="food-entry-description"><strong>${escapeHTML(entry.name)}</strong><span>${escapeHTML(entry.detail || "饮食记录")}</span></div>
+          <strong class="food-entry-calories">${formatCalories(entry.low)}–${formatCalories(entry.high)}<small>千卡</small></strong>
+          <button class="food-entry-remove" type="button" data-remove-food-entry="${escapeHTML(entry.id)}" aria-label="删除${escapeHTML(entry.name)}">删除</button>
+        </li>`).join("")}</ul>`
+    : `<p class="food-empty">今天还没有饮食记录。</p>`;
+  const estimateLabel = plan.isLowWeight ? "每日维持参考" : "每日减脂参考";
+  return `<section id="nutrition-diary" class="nutrition-diary" aria-labelledby="nutrition-title">
+    <div class="nutrition-heading"><div><p class="eyebrow">今天吃了什么</p><h3 id="nutrition-title">今日饮食</h3></div><span class="nutrition-date">${new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric" }).format(new Date())}</span></div>
+    <div class="nutrition-overview">
+      <div class="nutrition-total"><span>今日估算摄入</span><strong>${entries.length ? `${formatCalories(totalLow)}–${formatCalories(totalHigh)}` : "0"}<small>千卡</small></strong></div>
+      <div class="nutrition-target"><span>${estimateLabel}</span><strong>约 ${formatCalories(target)}<small>千卡 / 天</small></strong></div>
+    </div>
+    <div class="nutrition-progress" role="progressbar" aria-label="今日摄入与参考目标对比" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div>
+    <p class="nutrition-summary ${entries.length && totalLow > target ? "is-over" : ""}" aria-live="polite">${escapeHTML(summary)}</p>
+    <div class="food-photo-actions">
+      <label class="food-photo-button" for="food-photo-input"><span aria-hidden="true">▧</span>拍摄 / 选择食物照片</label>
+      <input id="food-photo-input" class="visually-hidden" type="file" accept="image/*" capture="environment">
+      <p>照片会发送给 OpenAI API 识别；本机不保存照片。确认估算后才记入本机日志。</p>
+    </div>
+    <div id="food-analysis-status" class="food-analysis-status ${foodStatusError ? "is-error" : ""}" role="status" aria-live="polite">${escapeHTML(foodStatusMessage)}</div>
+    <div id="food-analysis-preview" class="food-analysis-preview"></div>
+    ${meals}
+    <details class="food-manual-entry"><summary>手动补记一餐</summary>
+      <form id="manual-food-form" class="manual-food-form">
+        <label>餐食名称<input id="manual-food-name" type="text" maxlength="60" placeholder="例如：早餐" required></label>
+        <div class="manual-food-calories"><label>最低估算（千卡）<input id="manual-food-low" type="number" min="0" max="5000" step="10" required></label><label>最高估算（千卡）<input id="manual-food-high" type="number" min="0" max="5000" step="10" required></label></div>
+        <button class="binding-action" type="submit">加入今日记录</button>
+      </form>
+    </details>
+    <details class="food-service-settings"><summary>设置照片识别服务</summary>
+      <form id="food-service-form" class="food-service-form">
+        <label>服务地址<input id="food-service-endpoint" type="url" inputmode="url" autocomplete="url" placeholder="https://你的服务名.workers.dev" value="${escapeHTML(readFoodSettings().endpoint)}"></label>
+        <label>本机访问口令<input id="food-service-token" type="password" autocomplete="off" placeholder="粘贴部署时设置的访问口令" value="${escapeHTML(readFoodSettings().token)}"></label>
+        <button class="binding-action" type="submit">保存本机设置</button>
+      </form>
+      <p class="food-service-note">OpenAI 密钥只放在服务端，切勿填进此网页。识别服务部署说明见 <a href="https://github.com/Wthypon/lean-plan-web/blob/main/worker/README.md" target="_blank" rel="noopener">配置指南</a>。OpenAI API 按使用量计费。</p>
+      <p class="food-service-note">年龄、性别、活动量、热量目标和饮食记录保存在本机；请求只发送所选照片，不带个人档案。OpenAI 默认不使用 API 内容训练模型，但滥用监测日志可能保留内容最多 30 天；本服务关闭 Responses 应用状态保存。<a href="https://developers.openai.com/api/docs/guides/your-data" target="_blank" rel="noopener">数据保留说明</a></p>
+    </details>
+    <p class="calorie-estimate-note">目标根据基础代谢、日常活动量和计划训练时间粗略估算，不是医疗处方。食物热量来自照片推测，份量、烹调油和隐藏配料会造成误差；可手动修正。</p>
+  </section>`;
+}
+
+function renderFoodAnalysisPreview(estimate) {
+  const container = output.querySelector("#food-analysis-preview");
+  if (!container) return;
+  if (!estimate) {
+    container.innerHTML = "";
+    return;
+  }
+  const items = estimate.items.length
+    ? `<ul>${estimate.items.map((item) => `<li><span>${escapeHTML(item.name)} · ${escapeHTML(item.portion)}</span><strong>${formatCalories(item.kcal_low)}–${formatCalories(item.kcal_high)} 千卡</strong></li>`).join("")}</ul>`
+    : `<p class="food-empty">暂时无法从照片辨认食物，请换个角度拍摄或手动记录。</p>`;
+  container.innerHTML = `<div class="food-preview-card">
+    ${pendingFoodImageUrl ? `<img src="${escapeHTML(pendingFoodImageUrl)}" alt="本次选择的餐食照片">` : ""}
+    <div class="food-preview-content"><strong class="food-preview-title">${escapeHTML(estimate.meal_name)}</strong>${items}<p>${escapeHTML(estimate.note)}</p>
+      ${estimate.items.length ? `<div class="food-preview-confirm"><label>名称<input id="food-confirm-name" type="text" maxlength="60" value="${escapeHTML(estimate.meal_name)}"></label><label>估算下限<input id="food-confirm-low" type="number" min="0" max="5000" step="10" value="${estimate.total_kcal_low}"></label><label>估算上限<input id="food-confirm-high" type="number" min="0" max="5000" step="10" value="${estimate.total_kcal_high}"></label><button class="binding-action" type="button" data-confirm-food>确认并记入今天</button></div>` : ""}
+    </div>
+  </div>`;
+}
+
+function normalizeFoodEstimate(value) {
+  const number = (input) => Number.isInteger(input) && input >= 0 && input <= 5000 ? input : null;
+  if (!value || !Array.isArray(value.items) || value.items.length > 12) throw new Error("识别结果格式不完整，请重新拍摄或手动记录。");
+  const items = value.items.map((item) => {
+    const low = number(item?.kcal_low);
+    const high = number(item?.kcal_high);
+    if (!item || typeof item.name !== "string" || typeof item.portion !== "string" || low === null || high === null || high < low) {
+      throw new Error("识别结果格式不完整，请重新拍摄或手动记录。");
+    }
+    return { name: item.name.slice(0, 40), portion: item.portion.slice(0, 40), kcal_low: low, kcal_high: high };
+  });
+  const total_kcal_low = number(value.total_kcal_low);
+  const total_kcal_high = number(value.total_kcal_high);
+  if (total_kcal_low === null || total_kcal_high === null || total_kcal_high < total_kcal_low) {
+    throw new Error("识别结果格式不完整，请重新拍摄或手动记录。");
+  }
+  return {
+    meal_name: String(value.meal_name || "本餐").slice(0, 60),
+    items,
+    total_kcal_low,
+    total_kcal_high,
+    note: String(value.note || "热量仅为照片估算，请结合实际份量确认。").slice(0, 240)
+  };
+}
+
+function validateFoodServiceSettings() {
+  const settings = readFoodSettings();
+  if (!settings.endpoint || !settings.token) throw new Error("请先展开“设置照片识别服务”，填入服务地址和本机访问口令。");
+  let endpoint;
+  try { endpoint = new URL(settings.endpoint); } catch (_) { throw new Error("服务地址格式不正确。"); }
+  if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password) throw new Error("照片识别服务必须使用有效的 HTTPS 地址。");
+  return { endpoint: endpoint.href, token: settings.token };
+}
+
+async function compressFoodImage(file) {
+  if (!file.type.startsWith("image/")) throw new Error("请选择图片文件。");
+  if (file.size > 20 * 1024 * 1024) throw new Error("照片不能超过 20 MB。");
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("无法读取这张照片，请改用 JPG 或 PNG 后重试；HEIC 照片可先转换为 JPG。"));
+      element.src = sourceUrl;
+    });
+    const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!blob) throw new Error("照片压缩失败，请换一张照片重试。");
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("照片读取失败，请重试。"));
+      reader.readAsDataURL(blob);
+    });
+    return { imageData: dataUrl.split(",")[1], mimeType: "image/jpeg" };
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
+async function requestFoodEstimate(image) {
+  const settings = validateFoodServiceSettings();
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 60_000);
+  let response;
+  try {
+    response = await fetch(settings.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.token}` },
+      body: JSON.stringify(image),
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("识别等待时间过长，请检查网络后重试。");
+    throw new Error("无法连接识别服务，请检查网络，并确认 Worker 允许当前网站地址访问。");
+  } finally {
+    window.clearTimeout(timeout);
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `识别失败（${response.status}），请检查服务设置后重试。`);
+  if (!payload.estimate) throw new Error("识别服务没有返回可用的估算结果。");
+  return normalizeFoodEstimate(payload.estimate);
+}
+
+function addFoodEntry({ name, low, high, detail, items = [] }) {
+  if (!name.trim() || !Number.isFinite(low) || !Number.isFinite(high) || low < 0 || high < low || high > 5000) {
+    setFoodStatus("请检查餐食名称和热量范围。", true);
+    return false;
+  }
+  const entries = readTodayFoodEntries();
+  if (entries.length >= MAX_FOOD_ENTRIES_PER_DAY) {
+    setFoodStatus("今天的记录已达到上限。", true);
+    return false;
+  }
+  const id = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const entry = {
+    id,
+    time: new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(new Date()),
+    name: name.trim().slice(0, 60),
+    low: Math.round(low),
+    high: Math.round(high),
+    detail: String(detail || "饮食记录").slice(0, 240),
+    items: items.slice(0, 12).map((item) => ({ name: String(item.name).slice(0, 40), portion: String(item.portion).slice(0, 40) }))
+  };
+  if (!saveTodayFoodEntries([entry, ...entries])) {
+    setFoodStatus("本机存储不可用，无法保存饮食记录。", true);
+    return false;
+  }
+  pendingFoodEstimate = null;
+  if (pendingFoodImageUrl) URL.revokeObjectURL(pendingFoodImageUrl);
+  pendingFoodImageUrl = "";
+  setFoodStatus("已记入今天，饮食记录仅保存在本机。", false);
+  renderPlan(currentPlan);
+  return true;
+}
+
+function setFoodStatus(message, isError = false) {
+  foodStatusMessage = message;
+  foodStatusError = isError;
+  const status = output?.querySelector("#food-analysis-status");
+  if (status) {
+    status.textContent = message;
+    status.classList.toggle("is-error", isError);
+  }
+}
+
+function wireFoodDiary(plan) {
+  const settingsForm = output.querySelector("#food-service-form");
+  settingsForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const endpoint = output.querySelector("#food-service-endpoint").value.trim();
+    const token = output.querySelector("#food-service-token").value.trim();
+    let parsedUrl;
+    try { parsedUrl = new URL(endpoint); } catch (_) { setFoodStatus("请填写有效的 HTTPS 服务地址。", true); return; }
+    if (parsedUrl.protocol !== "https:" || parsedUrl.username || parsedUrl.password) {
+      setFoodStatus("服务地址必须使用有效的 HTTPS 地址。", true);
+      return;
+    }
+    if (token.length < 20 || token.length > 200) {
+      setFoodStatus("访问口令长度不正确，请粘贴部署时生成的完整口令。", true);
+      return;
+    }
+    if (!saveFoodSettings({ endpoint: parsedUrl.href, token })) {
+      setFoodStatus("无法保存在本机，请检查浏览器存储设置。", true);
+      return;
+    }
+    setFoodStatus("照片识别服务设置已保存在本机。", false);
+  });
+
+  const photoInput = output.querySelector("#food-photo-input");
+  photoInput?.addEventListener("change", async () => {
+    const file = photoInput.files?.[0];
+    if (!file) return;
+    const button = output.querySelector(".food-photo-button");
+    photoInput.disabled = true;
+    if (button) button.classList.add("is-loading");
+    pendingFoodEstimate = null;
+    if (pendingFoodImageUrl) URL.revokeObjectURL(pendingFoodImageUrl);
+    pendingFoodImageUrl = "";
+    renderFoodAnalysisPreview(null);
+    try {
+      setFoodStatus("正在压缩照片…", false);
+      const image = await compressFoodImage(file);
+      setFoodStatus("照片将发送给 OpenAI 估算餐食和份量…", false);
+      const estimate = await requestFoodEstimate(image);
+      if (pendingFoodImageUrl) URL.revokeObjectURL(pendingFoodImageUrl);
+      pendingFoodImageUrl = URL.createObjectURL(file);
+      pendingFoodEstimate = estimate;
+      renderFoodAnalysisPreview(estimate);
+      setFoodStatus("请核对餐食和热量范围，确认后才会记入本机。", false);
+    } catch (error) {
+      setFoodStatus(error.message || "识别失败，请稍后重试。", true);
+    } finally {
+      photoInput.value = "";
+      photoInput.disabled = false;
+      if (button) button.classList.remove("is-loading");
+    }
+  });
+
+  output.querySelector("[data-confirm-food]")?.addEventListener("click", () => {
+    if (!pendingFoodEstimate) return;
+    addFoodEntry({
+      name: output.querySelector("#food-confirm-name").value,
+      low: Number(output.querySelector("#food-confirm-low").value),
+      high: Number(output.querySelector("#food-confirm-high").value),
+      detail: pendingFoodEstimate.items.map((item) => `${item.name} ${item.portion}`).join("、"),
+      items: pendingFoodEstimate.items
+    });
+  });
+
+  output.querySelector("#manual-food-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const low = Number(output.querySelector("#manual-food-low").value);
+    const high = Number(output.querySelector("#manual-food-high").value);
+    addFoodEntry({ name: output.querySelector("#manual-food-name").value, low, high, detail: "手动记录" });
+  });
+
+  output.querySelectorAll("[data-remove-food-entry]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.removeFoodEntry;
+      const entries = readTodayFoodEntries().filter((entry) => entry.id !== id);
+      if (!saveTodayFoodEntries(entries)) {
+        setFoodStatus("本机存储不可用，无法删除记录。", true);
+        return;
+      }
+      setFoodStatus("已删除这条本机记录。", false);
+      renderPlan(currentPlan);
+    });
+  });
+
+  renderFoodAnalysisPreview(pendingFoodEstimate);
+}
+
 function restoreLocalProfile(code, automatic = false) {
   if (!/^\d{6}$/.test(code)) {
     setRestoreStatus("请输入完整的 6 位数字绑定码。", true);
@@ -242,7 +629,7 @@ function restoreLocalProfile(code, automatic = false) {
   currentBindingCode = code;
   saveRememberedBindingCode(code);
   applySavedProfile(profile);
-  setRestoreStatus("本机资料已恢复。请再次确认适用范围，再生成计划。");
+  setRestoreStatus(profile.age ? "本机资料已恢复。请再次确认适用范围，再生成计划。" : "旧资料已恢复；请补填年龄、性别和日常活动量，以估算每日热量目标。", !profile.age);
   bindingStatusMessage = "资料已从当前浏览器恢复；修改后点“保存本机资料”。";
   bindingStatusError = false;
 }
@@ -313,6 +700,9 @@ function readForm() {
     height: Number(form.elements.height.value),
     weight: Number(form.elements.weight.value),
     bodyFat: form.elements.bodyFat.value === "" ? null : Number(form.elements.bodyFat.value),
+    age: form.elements.age.value === "" ? null : Number(form.elements.age.value),
+    sex: form.elements.sex.value,
+    activity: form.elements.activity.value,
     minutes: Number(form.elements.minutes.value),
     months: Number(form.elements.months.value)
   };
@@ -382,7 +772,7 @@ function renderPlan(plan) {
           <div class="habit-item"><span class="habit-number">02</span><span>日常饮品优先选水或无糖茶；含糖饮料留作偶尔选择。</span></div>
           <div class="habit-item"><span class="habit-number">03</span><span>观察一周常吃的零食和饮料，先调整最容易的一项；不挨饿、不极端忌口。</span></div>
         </div>
-        <p class="habit-foot">没有年龄、性别和健康史信息，因此不提供热量处方。</p>
+        <p class="habit-foot">热量目标是结合个人资料的粗略估算，不是医疗处方，也不是精确测量值。</p>
       </section>`;
 
   output.innerHTML = `
@@ -395,13 +785,14 @@ function renderPlan(plan) {
       <p class="summary-note">${bmiNote}</p>${bodyFatNote}${lowWeightAlert}
     </div>
     ${renderBindingCard()}
+    ${renderFoodDiary(plan)}
     ${todayCard}
     <div class="week-progress-card">
       <div class="week-progress-heading"><strong>本周打卡</strong><span data-progress-count>0 / 7 天</span></div>
       <div class="week-progress-track" role="progressbar" aria-label="本周完成进度" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0"><span data-progress-fill></span></div>
       <p>点按每一天右侧的圆框，完成后这条安排会变灰。记录只保存在本机。</p>
     </div>
-    <div class="result-subheading"><h3>你的每周训练表</h3><span>单次不超过 ${plan.minutes} 分钟</span></div>
+    <div id="training-plan" class="result-subheading"><h3>你的每周训练表</h3><span>单次不超过 ${plan.minutes} 分钟</span></div>
     <p class="week-intro">动作平稳、保留余力；第 1 个月前两周按逐月路线减量，热身计入单次时间。</p>
     <div class="week-grid">${weekCards}</div>
     <p class="guideline-note">一般成人活动建议包括每周至少 150 分钟中等强度有氧和每周 2 天力量活动。时间有限时先从能坚持的安排开始，再逐步增加。</p>
@@ -430,6 +821,7 @@ function renderPlan(plan) {
   });
   updateCheckinViews(weekCheckins);
   wireBindingCard();
+  wireFoodDiary(plan);
 }
 
 function wireBindingCard() {
@@ -570,6 +962,7 @@ backupInput?.addEventListener("change", async () => {
 });
 const navLinks = Array.from(document.querySelectorAll(".mobile-nav-link"));
 const resultsNavLink = document.querySelector('[data-nav-target="results"]');
+const dietNavLink = document.querySelector('[data-nav-target="diet"]');
 
 function setNavigationActive(target) {
   navLinks.forEach((link) => {
@@ -581,15 +974,16 @@ function setNavigationActive(target) {
 }
 
 function setResultsNavigationEnabled(enabled) {
-  if (!resultsNavLink) return;
-  resultsNavLink.classList.toggle("is-disabled", !enabled);
-  if (enabled) {
-    resultsNavLink.removeAttribute("aria-disabled");
-    resultsNavLink.removeAttribute("tabindex");
-  } else {
-    resultsNavLink.setAttribute("aria-disabled", "true");
-    resultsNavLink.setAttribute("tabindex", "-1");
-  }
+  [resultsNavLink, dietNavLink].filter(Boolean).forEach((link) => {
+    link.classList.toggle("is-disabled", !enabled);
+    if (enabled) {
+      link.removeAttribute("aria-disabled");
+      link.removeAttribute("tabindex");
+    } else {
+      link.setAttribute("aria-disabled", "true");
+      link.setAttribute("tabindex", "-1");
+    }
+  });
 }
 
 if (currentBindingCode) {
@@ -616,7 +1010,9 @@ function updateNavigationFromScroll() {
     const sections = [
       { id: "top", element: document.querySelector(".hero") },
       { id: "planner", element: document.querySelector("#planner") },
-      { id: "results", element: results }
+      { id: "results", element: results },
+      { id: "diet", element: document.querySelector("#nutrition-diary") },
+      { id: "results", element: document.querySelector("#training-plan") }
     ].filter((entry) => entry.element && (entry.id !== "results" || !results.hidden));
     let active = sections[0]?.id || "top";
     sections.forEach((section) => {
@@ -645,7 +1041,7 @@ form.addEventListener("submit", (event) => {
   event.preventDefault();
   errorMessage.textContent = "";
   if (!form.reportValidity()) {
-    errorMessage.textContent = "请检查身高、体重、体脂率范围，并确认计划适用范围。";
+    errorMessage.textContent = "请检查身高、体重、年龄范围，选择估算系数和日常活动量，并确认计划适用范围。";
     return;
   }
   currentPlan = buildPlan(readForm());
