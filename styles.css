@@ -108,6 +108,42 @@ a { color: inherit; text-decoration: none; }
 .primary-button span:last-child { color: var(--lime); font-size: 17px; }
 .privacy-note { display: flex; justify-content: center; gap: 7px; align-items: center; margin: 13px 0 0; color: #a0aaa2; font-size: 10px; }
 .privacy-note span { color: #769176; font-size: 11px; }
+.visually-hidden { width: 1px; height: 1px; position: absolute; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+.profile-restore-card { margin-bottom: 22px; padding: 17px; border: 1px solid #e1e9dc; border-radius: 15px; background: #f5f8f2; }
+.profile-restore-heading { display: flex; gap: 11px; align-items: center; }
+.profile-restore-icon { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border-radius: 50%; color: #58765a; background: #e4eddd; font-size: 18px; }
+.profile-restore-heading h3 { margin: 0; color: #435a49; font-size: 14px; }
+.profile-restore-heading p { margin: 3px 0 0; color: #89978b; font-size: 11px; }
+.restore-profile-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 14px; }
+.restore-profile-form input { width: 100%; min-width: 0; height: 47px; border: 1px solid #e1e8de; border-radius: 10px; outline: 0; padding: 0 12px; color: #365341; background: white; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 17px; letter-spacing: .18em; }
+.restore-profile-form input:focus { border-color: #91aa8a; box-shadow: 0 0 0 3px rgba(145, 170, 138, .13); }
+.restore-profile-form input::placeholder { color: #b1bdb3; font-family: inherit; font-size: 13px; letter-spacing: 0; }
+.restore-profile-form button, .binding-action { min-height: 46px; border: 0; border-radius: 10px; padding: 0 14px; color: #f6f7f1; background: #426149; font-size: 12px; font-weight: 700; cursor: pointer; }
+.restore-profile-form button:disabled, .binding-action:disabled { opacity: .55; cursor: wait; }
+.restore-import-button { min-height: 40px; display: inline-flex; justify-content: center; align-items: center; margin-top: 9px; border: 1px solid #dce6d8; border-radius: 9px; padding: 0 12px; color: #5e765f; background: white; font-size: 11px; font-weight: 650; cursor: pointer; }
+.restore-import-button:focus-within { outline: 3px solid rgba(113, 142, 112, .28); outline-offset: 2px; }
+.remember-binding-code { display: inline-flex; gap: 8px; align-items: center; margin-top: 11px; color: #77877b; font-size: 11px; cursor: pointer; }
+.remember-binding-code input { width: 16px; height: 16px; accent-color: #58785c; }
+.profile-status { min-height: 0; margin: 6px 0 0; color: #718277; font-size: 11px; line-height: 1.55; }
+.profile-status:empty { display: none; }
+.profile-status.is-error, .binding-status.is-error { color: #a44f3d; }
+.profile-restore-divider { display: flex; align-items: center; gap: 10px; margin: -7px 0 20px; color: #a1aca3; font-size: 10px; }
+.profile-restore-divider::before, .profile-restore-divider::after { height: 1px; flex: 1; content: ""; background: #e9eee7; }
+.binding-card { margin: 17px 0 3px; padding: 19px; border: 1px solid #e3eadf; border-radius: 15px; background: #f7f9f5; }
+.binding-card-heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.binding-card-heading h3 { margin: 0; color: #405847; font-size: 15px; }
+.binding-card-heading p { margin: 5px 0 0; color: #88958b; font-size: 11px; line-height: 1.55; }
+.binding-home-mark { color: #789375; font-size: 19px; }
+.binding-local-intro { margin: 14px 0 0; color: #65776a; font-size: 12px; line-height: 1.65; }
+.binding-code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 15px; padding: 12px; border: 1px solid #e2eade; border-radius: 11px; background: white; }
+.binding-code-label { color: #89958b; font-size: 11px; }
+.binding-code-value { color: #36583f; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 23px; font-weight: 750; letter-spacing: .18em; }
+.binding-action-secondary { min-height: 36px; margin-left: auto; border: 1px solid #dce6d8; border-radius: 9px; padding: 0 11px; color: #5e765f; background: white; font-size: 11px; cursor: pointer; }
+.binding-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.binding-actions .binding-action { min-height: 44px; flex: 1 1 130px; }
+.binding-action-danger { color: #8d5448; background: #f3e8e4; }
+.binding-status { margin: 9px 0 0; color: #718277; font-size: 11px; line-height: 1.55; }
+.binding-warning { margin: 10px 0 0; color: #9b7860; font-size: 10px; line-height: 1.55; }
 .aside-column { display: grid; gap: 15px; }
 .aside-card { position: relative; overflow: hidden; padding: 25px 25px 24px; }
 .aside-green { color: #f4f4e9; background: #2b493a; }
@@ -398,6 +434,27 @@ a { color: inherit; text-decoration: none; }
   .form-error { font-size: 12px; }
   .primary-button { min-height: 56px; border-radius: 13px; font-size: 15px; }
   .privacy-note { font-size: 11px; }
+  .profile-restore-card { margin-bottom: 20px; padding: 15px; border-radius: 15px; }
+  .profile-restore-heading h3 { font-size: 15px; }
+  .profile-restore-heading p { font-size: 12px; }
+  .restore-profile-form { gap: 7px; margin-top: 13px; }
+  .restore-profile-form input { height: 51px; font-size: 18px; }
+  .restore-profile-form button { min-height: 51px; padding-inline: 12px; font-size: 13px; }
+  .restore-import-button { min-height: 44px; font-size: 12px; }
+  .remember-binding-code { min-height: 34px; font-size: 12px; }
+  .profile-status { font-size: 12px; }
+  .profile-restore-divider { margin-bottom: 18px; font-size: 11px; }
+  .binding-card { margin-top: 15px; padding: 17px; border-radius: 15px; }
+  .binding-card-heading h3 { font-size: 16px; }
+  .binding-card-heading p { font-size: 12px; }
+  .binding-local-intro { font-size: 13px; }
+  .binding-code-row { gap: 8px; padding: 11px; }
+  .binding-code-label { font-size: 12px; }
+  .binding-code-value { font-size: 22px; }
+  .binding-action-secondary { min-height: 40px; font-size: 12px; }
+  .binding-actions .binding-action { min-height: 47px; font-size: 13px; }
+  .binding-status { font-size: 12px; }
+  .binding-warning { font-size: 11px; }
   .aside-column { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 10px; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .aside-column::-webkit-scrollbar { display: none; }
   .aside-card { min-width: min(86%, 390px); min-height: 205px; padding: 23px; border-radius: 17px; scroll-snap-align: start; }

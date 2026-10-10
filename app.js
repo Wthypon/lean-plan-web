@@ -86,6 +86,219 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 }
 
+const LOCAL_PROFILES_STORAGE_KEY = "lean-plan-local-profiles";
+const ACTIVE_PROFILE_CODE_STORAGE_KEY = "lean-plan-active-profile-code";
+const restoreCard = document.querySelector("#profile-restore-card");
+const restoreDivider = document.querySelector("#profile-restore-divider");
+const restoreCodeInput = document.querySelector("#restore-profile-code");
+const restoreButton = document.querySelector("#restore-profile-button");
+const restoreStatus = document.querySelector("#profile-restore-status");
+const backupInput = document.querySelector("#profile-backup-input");
+const rememberCodeCheckbox = document.querySelector("#remember-binding-code");
+let currentBindingCode = loadRememberedBindingCode();
+let bindingStatusMessage = "";
+let bindingStatusError = false;
+if (currentBindingCode && rememberCodeCheckbox) rememberCodeCheckbox.checked = true;
+
+function loadRememberedBindingCode() {
+  try {
+    const value = localStorage.getItem(ACTIVE_PROFILE_CODE_STORAGE_KEY) || "";
+    return /^\d{6}$/.test(value) ? value : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function saveRememberedBindingCode(code) {
+  try {
+    if (rememberCodeCheckbox?.checked && code) localStorage.setItem(ACTIVE_PROFILE_CODE_STORAGE_KEY, code);
+    else localStorage.removeItem(ACTIVE_PROFILE_CODE_STORAGE_KEY);
+  } catch (_) {
+    // The user can still use or export the code for this session.
+  }
+}
+
+function validateLocalProfile(value) {
+  if (!value || typeof value !== "object") return null;
+  const height = Number(value.height);
+  const weight = Number(value.weight);
+  const bodyFat = value.bodyFat === null || value.bodyFat === "" || value.bodyFat === undefined ? null : Number(value.bodyFat);
+  const minutes = Number(value.minutes);
+  const months = Number(value.months);
+  if (!Number.isFinite(height) || height < 100 || height > 230) return null;
+  if (!Number.isFinite(weight) || weight < 25 || weight > 300) return null;
+  if (bodyFat !== null && (!Number.isFinite(bodyFat) || bodyFat < 3 || bodyFat > 70)) return null;
+  if (![20, 30, 45, 60, 90].includes(minutes)) return null;
+  if (!Number.isInteger(months) || months < 1 || months > 6) return null;
+  return { height, weight, bodyFat, minutes, months };
+}
+
+function readLocalProfiles() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LOCAL_PROFILES_STORAGE_KEY) || "{}");
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+    return Object.fromEntries(Object.entries(saved)
+      .filter(([code]) => /^\d{6}$/.test(code))
+      .map(([code, profile]) => [code, validateLocalProfile(profile)])
+      .filter(([, profile]) => profile));
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeLocalProfiles(profiles) {
+  try {
+    localStorage.setItem(LOCAL_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function generateLocalBindingCode(profiles) {
+  if (!window.crypto?.getRandomValues) throw new Error("当前浏览器无法生成安全的随机码。");
+  const max = 0x100000000;
+  const bound = Math.floor(max / 1_000_000) * 1_000_000;
+  const numbers = new Uint32Array(1);
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    do window.crypto.getRandomValues(numbers); while (numbers[0] >= bound);
+    const code = String(numbers[0] % 1_000_000).padStart(6, "0");
+    if (!profiles[code]) return code;
+  }
+  throw new Error("暂时无法生成新绑定码，请重试。");
+}
+
+function setRestoreStatus(message, isError = false) {
+  if (!restoreStatus) return;
+  restoreStatus.textContent = message;
+  restoreStatus.classList.toggle("is-error", isError);
+}
+
+function setBindingStatus(message, isError = false) {
+  bindingStatusMessage = message;
+  bindingStatusError = isError;
+  const element = output.querySelector(".binding-status");
+  if (element) {
+    element.textContent = message;
+    element.classList.toggle("is-error", isError);
+  }
+}
+
+function getFormProfile() {
+  const data = readForm();
+  return {
+    height: data.height,
+    weight: data.weight,
+    bodyFat: data.bodyFat,
+    minutes: data.minutes,
+    months: data.months
+  };
+}
+
+function applySavedProfile(profile) {
+  form.elements.height.value = profile.height;
+  form.elements.weight.value = profile.weight;
+  form.elements.bodyFat.value = profile.bodyFat === null ? "" : profile.bodyFat;
+  form.elements.minutes.value = String(profile.minutes);
+  form.elements.months.value = String(profile.months);
+  form.elements.adultConfirm.checked = false;
+  currentPlan = null;
+  results.hidden = true;
+  setResultsNavigationEnabled(false);
+  setNavigationActive("planner");
+  errorMessage.textContent = "";
+}
+
+function renderBindingCard() {
+  const codeRow = currentBindingCode
+    ? `<div class="binding-code-row"><span class="binding-code-label">你的 6 位本机码</span><strong class="binding-code-value">${escapeHTML(currentBindingCode)}</strong><button class="binding-action-secondary" type="button" data-copy-binding-code>复制</button></div>`
+    : `<p class="binding-local-intro">创建后，资料和绑定码只保存在当前浏览器，不会上传。需要换设备时，可下载备份文件并手动导入。</p>`;
+  const actionButtons = currentBindingCode
+    ? `<button class="binding-action" type="button" data-update-binding>保存本机资料</button><button class="binding-action" type="button" data-export-binding>导出备份</button><button class="binding-action binding-action-danger" type="button" data-delete-binding>删除本机资料</button>`
+    : `<button class="binding-action" type="button" data-create-binding>生成 6 位本机码并保存</button>`;
+  return `<section class="binding-card" aria-labelledby="binding-card-title">
+    <div class="binding-card-heading"><div><h3 id="binding-card-title">本机资料卡</h3><p>资料仅保存在此浏览器的本机存储中。</p></div><span class="binding-home-mark" aria-hidden="true">⌂</span></div>
+    ${codeRow}
+    <div class="binding-actions">${actionButtons}</div>
+    <p class="binding-status ${bindingStatusError ? "is-error" : ""}" role="status" aria-live="polite">${escapeHTML(bindingStatusMessage)}</p>
+    <p class="binding-warning">本机码只在同一浏览器、同一网站地址有效，不是加密密码；清除浏览器数据会删除资料。换设备请导出备份并自行传输，文件包含绑定码和个人资料，请妥善保管。</p>
+  </section>`;
+}
+
+function restoreLocalProfile(code, automatic = false) {
+  if (!/^\d{6}$/.test(code)) {
+    setRestoreStatus("请输入完整的 6 位数字绑定码。", true);
+    return;
+  }
+  const profile = readLocalProfiles()[code];
+  if (!profile) {
+    if (automatic) {
+      currentBindingCode = "";
+      saveRememberedBindingCode("");
+    }
+    setRestoreStatus("此浏览器和网站地址没有对应资料。绑定码不能单独跨设备恢复；请在原设备导出备份文件。", true);
+    return;
+  }
+  currentBindingCode = code;
+  saveRememberedBindingCode(code);
+  applySavedProfile(profile);
+  setRestoreStatus("本机资料已恢复。请再次确认适用范围，再生成计划。");
+  bindingStatusMessage = "资料已从当前浏览器恢复；修改后点“保存本机资料”。";
+  bindingStatusError = false;
+}
+
+async function importLocalBackup(file) {
+  if (file.size > 50_000) throw new Error("备份文件过大，无法导入。");
+  const backup = JSON.parse(await file.text());
+  const profile = validateLocalProfile(backup?.profile);
+  if (backup?.app !== "lean-plan-web" || backup?.version !== 1 || !/^\d{6}$/.test(backup?.code || "") || !profile) {
+    throw new Error("备份文件格式不正确或版本不受支持。");
+  }
+  const profiles = readLocalProfiles();
+  const existing = profiles[backup.code];
+  if (existing && JSON.stringify(existing) !== JSON.stringify(profile) &&
+    !window.confirm("此浏览器已存在相同绑定码但资料不同。导入会覆盖本机这条资料，继续吗？")) {
+    setRestoreStatus("已取消导入，现有本机资料未更改。", false);
+    return;
+  }
+  profiles[backup.code] = profile;
+  if (!writeLocalProfiles(profiles)) throw new Error("本机存储不可用，无法导入资料。");
+  currentBindingCode = backup.code;
+  saveRememberedBindingCode(currentBindingCode);
+  if (restoreCodeInput) restoreCodeInput.value = currentBindingCode;
+  applySavedProfile(profile);
+  setRestoreStatus("备份已在本机导入。请再次确认适用范围，再生成计划。");
+  bindingStatusMessage = "备份已导入此浏览器。";
+  bindingStatusError = false;
+}
+
+function exportLocalBackup() {
+  if (!currentBindingCode) throw new Error("请先创建本机码或恢复一份本机资料。");
+  const profile = validateLocalProfile(getFormProfile());
+  if (!profile) throw new Error("请先检查身高、体重、体脂率和计划选项。");
+  const profiles = readLocalProfiles();
+  if (!profiles[currentBindingCode]) throw new Error("本机没有找到这条资料，请重新创建本机码。");
+  profiles[currentBindingCode] = profile;
+  if (!writeLocalProfiles(profiles)) throw new Error("本机存储不可用，无法生成备份。");
+  const backup = {
+    app: "lean-plan-web",
+    version: 1,
+    savedAt: new Date().toISOString(),
+    code: currentBindingCode,
+    profile
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `lean-plan-backup-${dateKey(new Date())}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setBindingStatus("备份文件已下载到设备。可手动传到另一台设备后导入。", false);
+}
+
 const form = document.querySelector("#planner-form");
 const results = document.querySelector("#results");
 const output = document.querySelector("#plan-output");
@@ -181,6 +394,7 @@ function renderPlan(plan) {
       </div>
       <p class="summary-note">${bmiNote}</p>${bodyFatNote}${lowWeightAlert}
     </div>
+    ${renderBindingCard()}
     ${todayCard}
     <div class="week-progress-card">
       <div class="week-progress-heading"><strong>本周打卡</strong><span data-progress-count>0 / 7 天</span></div>
@@ -215,6 +429,98 @@ function renderPlan(plan) {
     });
   });
   updateCheckinViews(weekCheckins);
+  wireBindingCard();
+}
+
+function wireBindingCard() {
+  const createButton = output.querySelector("[data-create-binding]");
+  if (createButton) {
+    createButton.addEventListener("click", () => {
+      if (!form.checkValidity()) {
+        setBindingStatus("请先完成基础资料并确认计划适用范围。", true);
+        return;
+      }
+      try {
+        const profiles = readLocalProfiles();
+        currentBindingCode = generateLocalBindingCode(profiles);
+        profiles[currentBindingCode] = getFormProfile();
+        if (!writeLocalProfiles(profiles)) throw new Error("本机存储不可用，请检查浏览器设置或可用空间。");
+        saveRememberedBindingCode(currentBindingCode);
+        bindingStatusError = false;
+        bindingStatusMessage = "已保存在当前浏览器。请保存本机码，或导出备份文件换设备使用。";
+        if (restoreCodeInput) restoreCodeInput.value = currentBindingCode;
+        setRestoreStatus("本机码已创建，资料只保存在此浏览器。");
+        renderPlan(currentPlan);
+      } catch (error) {
+        setBindingStatus(error.message || "创建失败，请稍后重试。", true);
+      }
+    });
+  }
+
+  const updateButton = output.querySelector("[data-update-binding]");
+  if (updateButton) {
+    updateButton.addEventListener("click", () => {
+      if (!form.checkValidity()) {
+        setBindingStatus("请先检查资料并确认计划适用范围。", true);
+        return;
+      }
+      try {
+        const profiles = readLocalProfiles();
+        if (!profiles[currentBindingCode]) throw new Error("本机没有找到这条资料，请重新创建本机码。");
+        profiles[currentBindingCode] = getFormProfile();
+        if (!writeLocalProfiles(profiles)) throw new Error("本机存储不可用，请检查浏览器设置或可用空间。");
+        bindingStatusError = false;
+        bindingStatusMessage = "本机资料已保存。";
+        renderPlan(currentPlan);
+      } catch (error) {
+        setBindingStatus(error.message || "保存失败，请稍后重试。", true);
+      }
+    });
+  }
+
+  const exportButton = output.querySelector("[data-export-binding]");
+  if (exportButton) {
+    exportButton.addEventListener("click", () => {
+      try {
+        exportLocalBackup();
+      } catch (error) {
+        setBindingStatus(error.message || "备份失败，请稍后重试。", true);
+      }
+    });
+  }
+
+  const deleteButton = output.querySelector("[data-delete-binding]");
+  if (deleteButton) {
+    deleteButton.addEventListener("click", async () => {
+      const confirmed = window.confirm("删除后会清除此浏览器保存的资料和绑定码。若已有备份文件，文件不会被删除。确定继续吗？");
+      if (!confirmed) return;
+      try {
+        const profiles = readLocalProfiles();
+        delete profiles[currentBindingCode];
+        if (!writeLocalProfiles(profiles)) throw new Error("本机存储不可用，无法删除资料。");
+        currentBindingCode = "";
+        saveRememberedBindingCode("");
+        bindingStatusError = false;
+        bindingStatusMessage = "本机资料和绑定码已删除。";
+        setRestoreStatus("本机资料已删除。");
+        renderPlan(currentPlan);
+      } catch (error) {
+        setBindingStatus(error.message || "删除失败，请稍后重试。", true);
+      }
+    });
+  }
+
+  const copyButton = output.querySelector("[data-copy-binding-code]");
+  if (copyButton) {
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(currentBindingCode);
+        setBindingStatus("本机码已复制。", false);
+      } catch (_) {
+        setBindingStatus(`请手动保存本机码：${currentBindingCode}`, false);
+      }
+    });
+  }
 }
 
 function updateCheckinViews(checkins = readWeekCheckins()) {
@@ -234,6 +540,34 @@ function updateCheckinViews(checkins = readWeekCheckins()) {
   if (todayLabel) todayLabel.textContent = checkins[getWeekdayIndex()] ? "今天已完成" : "完成今天安排";
 }
 
+if (restoreCard) restoreCard.hidden = false;
+if (restoreDivider) restoreDivider.hidden = false;
+restoreButton?.addEventListener("click", () => restoreLocalProfile(restoreCodeInput.value.trim()));
+restoreCodeInput?.addEventListener("input", () => {
+  restoreCodeInput.value = restoreCodeInput.value.replace(/\D/g, "").slice(0, 6);
+});
+restoreCodeInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    restoreLocalProfile(restoreCodeInput.value.trim());
+  }
+});
+rememberCodeCheckbox?.addEventListener("change", () => {
+  if (!currentBindingCode) return;
+  saveRememberedBindingCode(currentBindingCode);
+  setRestoreStatus(rememberCodeCheckbox.checked ? "下次打开此浏览器会自动恢复本机资料。" : "已关闭自动恢复；本机资料仍保留，可输入本机码恢复。");
+});
+backupInput?.addEventListener("change", async () => {
+  const file = backupInput.files?.[0];
+  if (!file) return;
+  try {
+    await importLocalBackup(file);
+  } catch (error) {
+    setRestoreStatus(error.message || "无法读取备份文件。", true);
+  } finally {
+    backupInput.value = "";
+  }
+});
 const navLinks = Array.from(document.querySelectorAll(".mobile-nav-link"));
 const resultsNavLink = document.querySelector('[data-nav-target="results"]');
 
@@ -256,6 +590,11 @@ function setResultsNavigationEnabled(enabled) {
     resultsNavLink.setAttribute("aria-disabled", "true");
     resultsNavLink.setAttribute("tabindex", "-1");
   }
+}
+
+if (currentBindingCode) {
+  if (restoreCodeInput) restoreCodeInput.value = currentBindingCode;
+  restoreLocalProfile(currentBindingCode, true);
 }
 
 navLinks.forEach((link) => {

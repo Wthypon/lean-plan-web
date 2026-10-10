@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#f5f7f2">
   <meta name="description" content="根据你的身高、体重、运动时间和计划周期，生成一份循序渐进的减脂运动安排。">
   <title>轻盈计划｜把减脂变成做得到的日常</title>
-  <link rel="stylesheet" href="styles.css?v=2">
-  <script src="app.js?v=2" defer></script>
+  <link rel="stylesheet" href="styles.css?v=4">
+  <script src="app.js?v=4" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -15,7 +15,7 @@
       <span class="brand-icon" aria-hidden="true"><span></span></span>
       <span>轻盈计划</span>
     </a>
-    <div class="header-note"><span class="header-dot"></span>免费使用 · 数据只在你的设备上计算</div>
+    <div class="header-note"><span class="header-dot"></span>资料只保存在本机</div>
   </header>
 
   <main id="top">
@@ -47,6 +47,23 @@
 
       <div class="planner-grid">
         <form id="planner-form" class="panel form-panel" novalidate>
+          <section id="profile-restore-card" class="profile-restore-card" aria-labelledby="profile-restore-title">
+            <div class="profile-restore-heading">
+              <span class="profile-restore-icon" aria-hidden="true">↗</span>
+              <div><h3 id="profile-restore-title">已有 6 位本机码？</h3><p>在相同浏览器和网站地址恢复资料</p></div>
+            </div>
+            <div id="restore-profile-form" class="restore-profile-form">
+              <label class="visually-hidden" for="restore-profile-code">6 位本机码</label>
+              <input id="restore-profile-code" name="bindingCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="输入 6 位数字" aria-describedby="profile-restore-status">
+              <button id="restore-profile-button" type="button">恢复资料</button>
+            </div>
+            <label class="restore-import-button">从备份文件导入
+              <input id="profile-backup-input" type="file" accept="application/json,.json" class="visually-hidden">
+            </label>
+            <label class="remember-binding-code"><input id="remember-binding-code" type="checkbox" checked><span>下次打开此浏览器时自动恢复（本机保存 6 位码）</span></label>
+            <p id="profile-restore-status" class="profile-status" role="status" aria-live="polite"></p>
+          </section>
+          <div id="profile-restore-divider" class="profile-restore-divider"><span>或填写新资料开始规划</span></div>
           <div class="panel-heading"><span class="step-number">01</span><div><h3>你的基础数据</h3><p>只用于计算 BMI 和生成计划</p></div></div>
           <div class="input-grid">
             <label class="field">
@@ -94,7 +111,7 @@
           <p class="safety-hint">如有慢性病、疼痛或正在用药，请先咨询医生或专业人士。</p>
           <p id="form-error" class="form-error" role="alert" aria-live="polite"></p>
           <button class="primary-button" type="submit"><span>生成我的计划</span><span aria-hidden="true">↗</span></button>
-          <p class="privacy-note"><span aria-hidden="true">◉</span> 不需要注册，填写内容不会上传。</p>
+          <p class="privacy-note"><span aria-hidden="true">◉</span> 所有资料只保存在本机浏览器；不会上传到云端。</p>
         </form>
 
         <aside class="aside-column">
