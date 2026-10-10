@@ -1,4 +1,43 @@
 const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+const CHECKIN_STORAGE_KEY = "lean-plan-week-checkins";
+
+function dateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekStart(date = new Date()) {
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return monday;
+}
+
+function getWeekdayIndex(date = new Date()) {
+  return (date.getDay() + 6) % 7;
+}
+
+function readWeekCheckins() {
+  const week = dateKey(getWeekStart());
+  try {
+    const saved = JSON.parse(localStorage.getItem(CHECKIN_STORAGE_KEY) || "null");
+    if (saved && saved.week === week && Array.isArray(saved.days) && saved.days.length === 7) {
+      return saved.days.map(Boolean);
+    }
+  } catch (_) {
+    // If storage is unavailable or malformed, the plan still works without saved check-ins.
+  }
+  return Array(7).fill(false);
+}
+
+function saveWeekCheckins(daysDone) {
+  try {
+    localStorage.setItem(CHECKIN_STORAGE_KEY, JSON.stringify({ week: dateKey(getWeekStart()), days: daysDone }));
+  } catch (_) {
+    // Private browsing or a full storage quota should not prevent check-ins for this session.
+  }
+}
 
 function buildWeekPlan(minutes) {
   const warmupMinutes = Math.min(5, Math.max(3, Math.round(minutes * 0.1)));
@@ -54,6 +93,7 @@ const errorMessage = document.querySelector("#form-error");
 const printButton = document.querySelector("#print-plan");
 let currentPlan = null;
 let showAllMonths = false;
+let lastRenderedDate = dateKey(new Date());
 
 function readForm() {
   return {
@@ -66,6 +106,11 @@ function readForm() {
 }
 
 function renderPlan(plan) {
+  const today = new Date();
+  const todayIndex = getWeekdayIndex(today);
+  const todayPlan = plan.weekPlan[todayIndex];
+  const weekCheckins = readWeekCheckins();
+  const dateLabel = new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "long" }).format(today);
   const bmiNote = plan.isLowWeight
     ? "当前 BMI 偏低，不建议设置减脂目标。BMI 仅作筛查参考，不能单独判断体脂或健康状况。"
     : "BMI 仅作粗略参考，不能单独判断体脂或健康状况。计划不会预测具体减重结果。";
@@ -75,11 +120,26 @@ function renderPlan(plan) {
   const lowWeightAlert = plan.isLowWeight
     ? `<div class="lowweight-alert">体重偏低时不建议主动减重。下方安排请用于保持活动和基础力量，建议先与医疗专业人士讨论目标。</div>`
     : "";
-  const weekCards = plan.weekPlan.map((item) => `
-    <article class="day-card">
-      <span class="day-name ${item.kind}">${item.day}</span>
-      <div><strong class="day-title">${item.title}</strong><span class="day-detail">${item.detail}</span></div>
-      <i class="day-dot ${item.kind}" aria-hidden="true"></i>
+  const todayCard = `
+    <section class="today-plan-card ${weekCheckins[todayIndex] ? "is-complete" : ""}" aria-labelledby="today-plan-title">
+      <div class="today-plan-top"><span class="today-date"><i aria-hidden="true"></i>${dateLabel}</span><span class="today-plan-label">${todayPlan.kind === "rest" ? "恢复日" : "今日训练"}</span></div>
+      <h3 id="today-plan-title">今天的安排</h3>
+      <strong class="today-task-title">${escapeHTML(todayPlan.title)}</strong>
+      <p class="today-task-detail">${escapeHTML(todayPlan.detail)}</p>
+      <label class="today-complete-control">
+        <input class="checkin-toggle" type="checkbox" data-day-index="${todayIndex}" ${weekCheckins[todayIndex] ? "checked" : ""}>
+        <span class="checkin-box" aria-hidden="true"></span>
+        <span class="today-check-label">${weekCheckins[todayIndex] ? "今天已完成" : "完成今天安排"}</span>
+      </label>
+    </section>`;
+  const weekCards = plan.weekPlan.map((item, index) => `
+    <article class="day-card ${index === todayIndex ? "is-today" : ""} ${weekCheckins[index] ? "is-complete" : ""}">
+      <span class="day-name ${item.kind}">${item.day}${index === todayIndex ? `<small class="today-badge">今天</small>` : ""}</span>
+      <div><strong class="day-title">${escapeHTML(item.title)}</strong><span class="day-detail">${escapeHTML(item.detail)}</span></div>
+      <label class="day-check" aria-label="标记${item.day}安排完成">
+        <input class="checkin-toggle" type="checkbox" data-day-index="${index}" ${weekCheckins[index] ? "checked" : ""}>
+        <span class="checkin-box" aria-hidden="true"></span>
+      </label>
     </article>`).join("");
   const monthCards = plan.monthPlan
     .filter((phase) => showAllMonths || phase.month <= 2)
@@ -121,6 +181,12 @@ function renderPlan(plan) {
       </div>
       <p class="summary-note">${bmiNote}</p>${bodyFatNote}${lowWeightAlert}
     </div>
+    ${todayCard}
+    <div class="week-progress-card">
+      <div class="week-progress-heading"><strong>本周打卡</strong><span data-progress-count>0 / 7 天</span></div>
+      <div class="week-progress-track" role="progressbar" aria-label="本周完成进度" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0"><span data-progress-fill></span></div>
+      <p>点按每一天右侧的圆框，完成后这条安排会变灰。记录只保存在本机。</p>
+    </div>
     <div class="result-subheading"><h3>你的每周训练表</h3><span>单次不超过 ${plan.minutes} 分钟</span></div>
     <p class="week-intro">动作平稳、保留余力；第 1 个月前两周按逐月路线减量，热身计入单次时间。</p>
     <div class="week-grid">${weekCards}</div>
@@ -139,7 +205,88 @@ function renderPlan(plan) {
       renderPlan(currentPlan);
     });
   }
+
+  output.querySelectorAll(".checkin-toggle").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const updatedCheckins = readWeekCheckins();
+      updatedCheckins[Number(checkbox.dataset.dayIndex)] = checkbox.checked;
+      saveWeekCheckins(updatedCheckins);
+      updateCheckinViews(updatedCheckins);
+    });
+  });
+  updateCheckinViews(weekCheckins);
 }
+
+function updateCheckinViews(checkins = readWeekCheckins()) {
+  output.querySelectorAll(".checkin-toggle").forEach((checkbox) => {
+    const isComplete = Boolean(checkins[Number(checkbox.dataset.dayIndex)]);
+    checkbox.checked = isComplete;
+    checkbox.closest(".day-card, .today-plan-card")?.classList.toggle("is-complete", isComplete);
+  });
+  const completeCount = checkins.filter(Boolean).length;
+  const count = output.querySelector("[data-progress-count]");
+  const fill = output.querySelector("[data-progress-fill]");
+  const progress = output.querySelector(".week-progress-track");
+  if (count) count.textContent = `${completeCount} / 7 天`;
+  if (fill) fill.style.width = `${(completeCount / 7) * 100}%`;
+  if (progress) progress.setAttribute("aria-valuenow", String(completeCount));
+  const todayLabel = output.querySelector(".today-check-label");
+  if (todayLabel) todayLabel.textContent = checkins[getWeekdayIndex()] ? "今天已完成" : "完成今天安排";
+}
+
+const navLinks = Array.from(document.querySelectorAll(".mobile-nav-link"));
+const resultsNavLink = document.querySelector('[data-nav-target="results"]');
+
+function setNavigationActive(target) {
+  navLinks.forEach((link) => {
+    const active = link.dataset.navTarget === target;
+    link.classList.toggle("is-active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+function setResultsNavigationEnabled(enabled) {
+  if (!resultsNavLink) return;
+  resultsNavLink.classList.toggle("is-disabled", !enabled);
+  if (enabled) {
+    resultsNavLink.removeAttribute("aria-disabled");
+    resultsNavLink.removeAttribute("tabindex");
+  } else {
+    resultsNavLink.setAttribute("aria-disabled", "true");
+    resultsNavLink.setAttribute("tabindex", "-1");
+  }
+}
+
+navLinks.forEach((link) => {
+  link.addEventListener("click", (event) => {
+    if (link.getAttribute("aria-disabled") === "true") {
+      event.preventDefault();
+      return;
+    }
+    setNavigationActive(link.dataset.navTarget);
+  });
+});
+
+let scrollFrame = 0;
+function updateNavigationFromScroll() {
+  if (scrollFrame) return;
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0;
+    const probe = window.innerHeight * 0.38;
+    const sections = [
+      { id: "top", element: document.querySelector(".hero") },
+      { id: "planner", element: document.querySelector("#planner") },
+      { id: "results", element: results }
+    ].filter((entry) => entry.element && (entry.id !== "results" || !results.hidden));
+    let active = sections[0]?.id || "top";
+    sections.forEach((section) => {
+      if (section.element.getBoundingClientRect().top <= probe) active = section.id;
+    });
+    setNavigationActive(active);
+  });
+}
+window.addEventListener("scroll", updateNavigationFromScroll, { passive: true });
 
 function updateCurrentPlan() {
   if (!currentPlan) return;
@@ -147,6 +294,8 @@ function updateCurrentPlan() {
   if (!form.checkValidity()) {
     currentPlan = null;
     results.hidden = true;
+    setResultsNavigationEnabled(false);
+    updateNavigationFromScroll();
     return;
   }
   currentPlan = buildPlan(data);
@@ -164,6 +313,9 @@ form.addEventListener("submit", (event) => {
   showAllMonths = false;
   renderPlan(currentPlan);
   results.hidden = false;
+  setResultsNavigationEnabled(true);
+  lastRenderedDate = dateKey(new Date());
+  setNavigationActive("results");
   requestAnimationFrame(() => results.scrollIntoView({ behavior: "smooth", block: "start" }));
 });
 
@@ -173,3 +325,27 @@ form.addEventListener("input", () => {
 });
 form.addEventListener("change", updateCurrentPlan);
 printButton.addEventListener("click", () => window.print());
+
+function refreshForToday() {
+  const todayKey = dateKey(new Date());
+  if (currentPlan && todayKey !== lastRenderedDate) {
+    renderPlan(currentPlan);
+    lastRenderedDate = todayKey;
+  }
+  updateNavigationFromScroll();
+}
+
+function scheduleMidnightRefresh() {
+  const now = new Date();
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  window.setTimeout(() => {
+    refreshForToday();
+    scheduleMidnightRefresh();
+  }, nextMidnight.getTime() - now.getTime() + 50);
+}
+
+window.addEventListener("focus", refreshForToday);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshForToday();
+});
+scheduleMidnightRefresh();
